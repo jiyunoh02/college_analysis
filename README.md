@@ -1,4 +1,4 @@
-# 📊 Does Paying More for College Lead to Higher Earnings?
+# Does Paying More for College Lead to Higher Earnings?
 ### U.S. College ROI Analysis — College Scorecard Data (2025)
 
 ---
@@ -7,10 +7,11 @@
 
 This project analyzes whether tuition cost predicts earnings after graduation — and shows how the answer changes completely depending on how you process the data.
 
-- **Data Source:** U.S. Department of Education — College Scorecard (2025)
+- **Data Source:** U.S. Department of Education — College Scorecard (2025) — https://collegescorecard.ed.gov/data/
 - **Schools analyzed:** 1,601 four-year colleges (Public & Private Non-Profit)
 - **Key variables:** Tuition, Net Price After Aid, Graduation Rate, Median Earnings 10 Years After Enrollment
 
+> Note: This project does not establish causation. It demonstrates how variable selection and filtering decisions change the interpretation of the same dataset.
 ---
 
 ## The Question
