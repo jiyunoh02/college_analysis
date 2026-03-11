@@ -1,4 +1,4 @@
-# Does Paying More for College Lead to Higher Earnings?
+# 📊 Does Paying More for College Lead to Higher Earnings?
 ### U.S. College ROI Analysis — College Scorecard Data (2025)
 
 ---
@@ -7,140 +7,123 @@
 
 This project analyzes whether tuition cost predicts earnings after graduation — and shows how the answer changes completely depending on how you process the data.
 
-- **Data Source:** U.S. Department of Education — College Scorecard (2025) — https://collegescorecard.ed.gov/data/
+- **Data Source:** U.S. Department of Education — College Scorecard (2025)
 - **Schools analyzed:** 1,601 four-year colleges (Public & Private Non-Profit)
-- **Key variables:** Tuition, Net Price After Aid, Graduation Rate, Median Earnings 10 Years After Enrollment
+- **Tools:** Python (pandas, numpy, matplotlib, seaborn)
 
-> Note: This project does not establish causation. It demonstrates how variable selection and filtering decisions change the interpretation of the same dataset.
 ---
 
 ## The Question
 
 > **Does paying more for college lead to higher earnings after graduation?**
 
-At first glance, the answer seems obvious — expensive schools produce high earners. But the conclusion changes at every step of data processing. This project documents that journey across 5 layers of analysis.
+At first glance, the answer seems obvious. But the conclusion changes at every step of data processing. This project documents that journey across 5 layers of analysis.
 
 ---
 
-## Data Cleaning Process
+## Step 1: Column Selection
 
-```
-Raw data: 6,429 institutions
-↓ Filter: 4-year degree programs only (PREDDEG == 3)
-↓ Filter: Public (1) and Private Non-Profit (2) only
-  — Removed for-profit schools (trade/vocational, not comparable)
-↓ Remove rows missing tuition, earnings, or graduation rate
-↓ Remove 'PrivacySuppressed' values (privacy-masked entries)
-↓
-Final dataset: 1,601 schools
-  (Public: 566 / Private Non-Profit: 1,035)
-```
+The raw College Scorecard dataset contains **3,000+ columns**. I narrowed it down to 11 based on what would meaningfully capture the relationship between cost and outcome.
 
-The cleaning decisions themselves shape the analysis — keeping for-profit schools, for example, would have significantly distorted the results.
+| Column | What It Measures | Why I Included It |
+|---|---|---|
+| `INSTNM` | School name | Identifier |
+| `CONTROL` | Public / Private / For-profit | To split school types |
+| `PREDDEG` | Predominant degree granted | To isolate 4-year schools |
+| `COSTT4_A` | Annual sticker price (tuition) | Main cost variable |
+| `NPT4_PUB` / `NPT4_PRIV` | Net price after financial aid | Real cost after aid |
+| `MD_EARN_WNE_P10` | Median earnings 10yr after enrollment | Main outcome variable |
+| `GRAD_DEBT_MDN` | Median debt at graduation | Financial burden |
+| `C150_4` | 6-year graduation rate | Completion rate |
+| `UGDS` | Undergraduate enrollment size | School scale |
+| `STABBR` | State | Geographic context |
+
+I chose **earnings 10 years after enrollment** (not 6 years) because it better reflects settled career income rather than entry-level salaries.
 
 ---
 
-## 5 Layers of Analysis
+## Step 2: Data Cleaning Decisions
 
-### Layer 1: Simple Correlation — Tuition vs Earnings
+### 2-1. Keeping Only 4-Year Schools
+```python
+df = df[df['PREDDEG'] == 3]
+```
+`PREDDEG == 3` means the school predominantly grants bachelor's degrees. I excluded community colleges (2-year) and certificate programs because they serve different purposes and comparing them to 4-year universities would distort the analysis.
 
-The most basic question: does higher tuition correlate with higher earnings?
+### 2-2. Removing For-Profit Schools
+```python
+df = df[df['CONTROL'].isin([1, 2])]
+# 1 = Public, 2 = Private Non-Profit, 3 = For-Profit (excluded)
+```
+For-profit schools (e.g. University of Phoenix) have fundamentally different cost structures, student populations, and outcomes. Including them would conflate two separate markets. I kept only Public and Private Non-Profit institutions, which are the schools most students consider when making college decisions.
 
-> **r = 0.52** — A moderate positive correlation. Expensive schools do tend to produce higher earners, but the relationship is far from clean.
+### 2-3. Removing 'PrivacySuppressed' Values
+```python
+df = df[df['MD_EARN_WNE_P10'] != 'PrivacySuppressed']
+```
+The Department of Education masks earnings data for schools where the sample size is too small to report without identifying individuals. These aren't missing by chance — they're structurally absent. Treating them as NaN and imputing would introduce bias, so I dropped them entirely.
+
+### 2-4. Net Price: Two Separate Columns
+```python
+df['net_price'] = np.where(df['CONTROL'] == 1, df['NPT4_PUB'], df['NPT4_PRIV'])
+```
+The dataset stores net price in two separate columns depending on school type. I merged them into one `net_price` column for analysis. This is not a standard merge — it required understanding what each column actually represents.
+
+**After all cleaning steps:**
+```
+Raw:     6,429 schools
+→ 4-year only:           1,983
+→ Public/Private NP:     1,827
+→ Remove missing/masked: 1,601 ✓
+```
+
+---
+
+## Step 3: Visualizations — Design Choices
+
+### Fig 1 — Scatter Plot (Tuition vs Earnings)
+I chose a scatter plot to show the **distribution** of schools, not just averages. A bar chart would have hidden how much variance exists at every tuition level. Color-coded by school type to layer in a second variable without adding a separate chart.
 
 ![](figures/fig1_tuition_vs_earnings.png)
 
----
-
-### Layer 2: Does School Type Change the Story?
-
-Splitting by Public vs Private Non-Profit reveals a key nuance.
-
-- Private schools charge significantly more in tuition
-- But median earnings are only marginally higher
-- Public schools show a **better ROI** when comparing tuition paid vs earnings gained
+### Fig 2 — Box Plot (Public vs Private)
+Box plots were more appropriate than bar charts here because the goal was to show the **spread and median** simultaneously. Bar charts showing only the mean would have been misleading given how skewed tuition distributions are.
 
 ![](figures/fig2_public_vs_private.png)
 
----
-
-### Layer 3: Sticker Price vs Net Price — Are Expensive Schools Really That Expensive?
-
-Tuition listed on a school's website (sticker price) is not what most students actually pay.
-
-- **Private Non-Profit schools** offer a median discount of ~40% through financial aid
-- A school with $60K sticker price may actually cost $35K after aid
-- When recalculated using net price, the correlation with earnings **drops from r = 0.52 to r = 0.37**
-
-> Expensive-looking schools aren't always actually expensive — and cheap-looking schools aren't always cheap.
+### Fig 3 — Scatter Plot (Sticker vs Net Price)
+I added a diagonal reference line (where sticker = net price = no aid) so the reader can immediately see the **distance** between what schools advertise and what students actually pay. This makes the discount visible at a glance.
 
 ![](figures/fig3_sticker_vs_net_price.png)
 
----
-
-### Layer 4: What Happens When We Control for Graduation Rate?
-
-Schools with low graduation rates skew the earnings data — students who don't graduate still show up in the enrollment figures but their lower earnings aren't captured.
-
-- Filtering for schools with graduation rate ≥ 50% changes the correlation
-- The relationship between tuition and earnings becomes **cleaner and stronger**
-- This suggests that graduation rates are a confounding variable in the raw analysis
+### Fig 4 — Before/After Comparison
+Instead of just showing the filtered result, I placed the before and after side by side so the impact of controlling for graduation rate is directly visible. The correlation coefficient is annotated on both panels for easy comparison.
 
 ![](figures/fig4_grad_rate_effect.png)
 
----
-
-### Layer 5: Which Variable Actually Predicts Earnings Best?
-
-After running through all four layers, comparing the correlation of each variable with earnings reveals the real answer.
-
-| Variable | Correlation with Earnings |
-|---|---|
-| Graduation Rate | **r = 0.63** ← strongest |
-| Tuition (Sticker) | r = 0.52 |
-| Net Price (After Aid) | r = 0.37 |
-| School Size | weak |
-
-> **The variable that best predicts earnings is not tuition — it's graduation rate.**  
-> Schools that get students across the finish line produce higher earners, regardless of price.
+### Fig 5 — Horizontal Bar Chart (Variable Comparison)
+I chose a horizontal bar chart to rank predictors clearly. The strongest predictor is highlighted in a distinct color so the key finding is visible in under 3 seconds.
 
 ![](figures/fig5_summary.png)
 
 ---
 
-## Key Takeaway
+## Key Findings
 
-Starting with "does expensive = better earnings?" leads to a misleading r = 0.52.
+| Layer | Finding |
+|---|---|
+| 1. Simple correlation | Tuition vs earnings: **r = 0.52** |
+| 2. School type split | Public schools show better ROI per dollar spent |
+| 3. Sticker vs net price | Private schools discount ~40% on average — sticker price is misleading |
+| 4. Graduation rate control | Low-graduation schools distort earnings data downward |
+| 5. Best predictor | **Graduation rate (r = 0.63)** outperforms tuition as an earnings predictor |
 
-But after controlling for school type, financial aid, and graduation rate, a clearer picture emerges:
-
-**It's not about how much you pay. It's about whether you graduate — and from what kind of institution.**
-
----
-
-## Tools Used
-
-- **Python** — pandas, numpy, matplotlib, seaborn
-- **Data** — U.S. Department of Education, College Scorecard (collegescorecard.ed.gov)
-
----
-
-## Files
-
-```
-├── README.md
-├── analysis.py
-├── college_data.csv
-└── figures/
-    ├── fig1_tuition_vs_earnings.png
-    ├── fig2_public_vs_private.png
-    ├── fig3_sticker_vs_net_price.png
-    ├── fig4_grad_rate_effect.png
-    └── fig5_summary.png
-```
+> The variable that best predicts earnings is not tuition — it's graduation rate.  
+> Schools that get students across the finish line produce higher earners, regardless of price.
 
 ---
 
 ## Reflection
 
-This project highlights that the most valuable part of data analysis is not only visualization, but the ability to ask the right questions and design meaningful experiments. The same dataset produced four different answers depending on how it was processed — and each processing decision had a justifiable reason behind it. That's what makes data analysis interesting: the answer is never just in the numbers, it's in the choices you make about how to look at them.
+This project highlighted that data cleaning decisions are not neutral — every choice about what to include or exclude changes the conclusion. Removing for-profit schools, handling PrivacySuppressed values, and choosing net price over sticker price each shifted the results meaningfully. The most important skill wasn't writing the visualization code — it was deciding what the data should look like before any code was written.
+
